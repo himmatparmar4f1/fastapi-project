@@ -1,40 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PDF Dashboard</title>
-
-  <!-- Bootstrap -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>PDF Dashboard System</title>
 
   <style>
     body {
-      background: linear-gradient(135deg, #eef2f3, #8e9eab);
-      font-family: Arial, sans-serif;
+      font-family: Arial;
+      background: linear-gradient(135deg, #e0eafc, #cfdef3);
+      margin: 0;
+      padding: 0;
     }
 
-    .container-box {
+    .box {
+      width: 400px;
+      margin: 80px auto;
       background: white;
-      padding: 25px;
-      margin-top: 40px;
-      border-radius: 12px;
-      box-shadow: 0px 5px 20px rgba(0,0,0,0.15);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 5px 15px rgba(0,0,0,0.2);
     }
 
-    h2 {
-      font-weight: bold;
-      margin-bottom: 20px;
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
     }
 
-    .btn-space {
-      margin-right: 10px;
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    #dashboard {
+      display: none;
+      padding: 20px;
     }
 
     table {
+      width: 100%;
+      border-collapse: collapse;
       margin-top: 20px;
+      background: white;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
     }
 
     th {
-      background: #343a40 !important;
+      background: #333;
       color: white;
     }
   </style>
@@ -42,35 +59,52 @@
 
 <body>
 
-<div class="container container-box">
+<!-- ================= LOGIN PAGE ================= -->
+<div id="loginBox" class="box">
 
-  <h2>📄 PDF Processing Dashboard</h2>
+  <h2>🔐 Login</h2>
 
-  <!-- FILE UPLOAD -->
-  <input type="file" id="pdfFile" multiple accept="application/pdf" class="form-control">
+  <input id="loginUser" placeholder="Username">
+  <input id="loginPass" type="password" placeholder="Password">
 
-  <br>
+  <button onclick="login()">Login</button>
 
-  <!-- BUTTONS -->
-  <button class="btn btn-primary btn-space" onclick="uploadPDF()">Upload PDFs</button>
-  <button class="btn btn-success btn-space" onclick="getOutput()">Get Output</button>
-  <button class="btn btn-warning btn-space" onclick="downloadJSON()">Download JSON</button>
-  <button class="btn btn-info btn-space" onclick="downloadExcel()">Download Excel</button>
+  <hr>
 
-  <!-- TABLE -->
-  <div class="table-responsive">
-    <table class="table table-striped table-bordered">
-      <thead>
-        <tr>
-          <th>File Name</th>
-          <th>Employee Name</th>
-          <th>Net Pay</th>
-          <th>Basic Salary</th>
-        </tr>
-      </thead>
-      <tbody id="tableBody"></tbody>
-    </table>
-  </div>
+  <h3>🆕 Register</h3>
+
+  <input id="regUser" placeholder="Username">
+  <input id="regPass" type="password" placeholder="Password">
+
+  <button onclick="register()">Register</button>
+
+  <p id="msg"></p>
+</div>
+
+<!-- ================= DASHBOARD ================= -->
+<div id="dashboard">
+
+  <h2>📄 PDF Upload Dashboard</h2>
+
+  <input type="file" id="pdfFile" multiple accept="application/pdf">
+
+  <br><br>
+
+  <button onclick="uploadPDF()">Upload PDFs</button>
+  <button onclick="getOutput()">Get Output</button>
+  <button onclick="logout()">Logout</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Name</th>
+        <th>Net Pay</th>
+        <th>Basic</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
 
 </div>
 
@@ -78,14 +112,53 @@
 
 let globalData = [];
 
-// 📤 Upload
+// ---------------- LOGIN ----------------
+function login() {
+  fetch("/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      username: document.getElementById("loginUser").value,
+      password: document.getElementById("loginPass").value
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if(data.status === "success") {
+      document.getElementById("loginBox").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+    } else {
+      document.getElementById("msg").innerText = "❌ Invalid Login";
+    }
+  });
+}
+
+
+// ---------------- REGISTER ----------------
+function register() {
+  fetch("/register", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      username: document.getElementById("regUser").value,
+      password: document.getElementById("regPass").value
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("msg").innerText = data.message;
+  });
+}
+
+
+// ---------------- UPLOAD PDF ----------------
 function uploadPDF() {
   const fileInput = document.getElementById("pdfFile");
   const files = fileInput.files;
 
   const formData = new FormData();
 
-  for (let i = 0; i < files.length; i++) {
+  for(let i=0; i<files.length; i++) {
     formData.append("files", files[i]);
   }
 
@@ -95,67 +168,41 @@ function uploadPDF() {
   })
   .then(res => res.json())
   .then(data => {
-    alert("Upload Successful 🚀");
+    alert("Upload Done");
   });
 }
 
 
-// 📊 Get Output
+// ---------------- GET OUTPUT ----------------
 function getOutput() {
   fetch("/get-output")
-    .then(res => res.json())
-    .then(data => {
+  .then(res => res.json())
+  .then(data => {
 
-      globalData = data;
+    globalData = data;
 
-      const tableBody = document.getElementById("tableBody");
-      tableBody.innerHTML = "";
+    const table = document.getElementById("tableBody");
+    table.innerHTML = "";
 
-      data.forEach(item => {
-        tableBody.innerHTML += `
-          <tr>
-            <td>${item.file}</td>
-            <td>${item.name}</td>
-            <td>${item.net_pay}</td>
-            <td>${item.basic_salary}</td>
-          </tr>
-        `;
-      });
-
+    data.forEach(item => {
+      table.innerHTML += `
+        <tr>
+          <td>${item.file}</td>
+          <td>${item.name}</td>
+          <td>${item.net_pay}</td>
+          <td>${item.basic_salary}</td>
+        </tr>
+      `;
     });
-}
 
-
-// 📥 JSON Download
-function downloadJSON() {
-  const dataStr = "data:text/json;charset=utf-8," +
-    encodeURIComponent(JSON.stringify(globalData, null, 2));
-
-  const a = document.createElement("a");
-  a.href = dataStr;
-  a.download = "data.json";
-  a.click();
-}
-
-
-// 📥 Excel Download
-function downloadExcel() {
-
-  let csv = "File Name,Employee Name,Net Pay,Basic Salary\n";
-
-  globalData.forEach(row => {
-    csv += `"${row.file}","${row.name}","${row.net_pay}","${row.basic_salary}"\n`;
   });
+}
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = window.URL.createObjectURL(blob);
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "pdf_data.csv";
-  a.click();
-
-  window.URL.revokeObjectURL(url);
+// ---------------- LOGOUT ----------------
+function logout() {
+  document.getElementById("loginBox").style.display = "block";
+  document.getElementById("dashboard").style.display = "none";
 }
 
 </script>
