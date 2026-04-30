@@ -1,82 +1,127 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PDF Dashboard System</title>
+  <title>Secure PDF System</title>
 
   <style>
     body {
-      font-family: Arial;
-      background: linear-gradient(135deg, #e0eafc, #cfdef3);
       margin: 0;
-      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
-    .box {
-      width: 400px;
-      margin: 80px auto;
+    /* LOGIN CARD */
+    .card {
+      width: 380px;
       background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0px 5px 15px rgba(0,0,0,0.2);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+      text-align: center;
+    }
+
+    .card h2 {
+      margin-bottom: 20px;
+      color: #333;
     }
 
     input {
       width: 100%;
-      padding: 10px;
-      margin: 8px 0;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      outline: none;
+      font-size: 14px;
+    }
+
+    input:focus {
+      border-color: #667eea;
     }
 
     button {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-top: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #667eea;
+      color: white;
+      font-size: 15px;
       cursor: pointer;
+      transition: 0.3s;
     }
 
+    button:hover {
+      background: #5a67d8;
+    }
+
+    .link {
+      margin-top: 10px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #667eea;
+    }
+
+    /* DASHBOARD */
     #dashboard {
       display: none;
+      width: 90%;
+      background: white;
       padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     }
 
     table {
       width: 100%;
+      margin-top: 15px;
       border-collapse: collapse;
-      margin-top: 20px;
-      background: white;
-    }
-
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
     }
 
     th {
-      background: #333;
+      background: #667eea;
       color: white;
+      padding: 10px;
     }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .btn-row button {
+      width: auto;
+      margin-right: 10px;
+      padding: 8px 12px;
+    }
+
   </style>
 </head>
 
 <body>
 
-<!-- ================= LOGIN PAGE ================= -->
-<div id="loginBox" class="box">
+<!-- ================= LOGIN BOX ================= -->
+<div class="card" id="loginBox">
 
-  <h2>🔐 Login</h2>
+  <h2>🔐 Secure Login</h2>
 
   <input id="loginUser" placeholder="Username">
   <input id="loginPass" type="password" placeholder="Password">
 
   <button onclick="login()">Login</button>
 
-  <hr>
+  <div class="link" onclick="toggleRegister()">Create new account</div>
 
-  <h3>🆕 Register</h3>
-
-  <input id="regUser" placeholder="Username">
-  <input id="regPass" type="password" placeholder="Password">
-
-  <button onclick="register()">Register</button>
+  <div id="registerBox" style="display:none;">
+    <input id="regUser" placeholder="New Username">
+    <input id="regPass" type="password" placeholder="New Password">
+    <button onclick="register()">Register</button>
+  </div>
 
   <p id="msg"></p>
 </div>
@@ -84,15 +129,15 @@
 <!-- ================= DASHBOARD ================= -->
 <div id="dashboard">
 
-  <h2>📄 PDF Upload Dashboard</h2>
+  <h2>📄 PDF Processing Dashboard</h2>
 
-  <input type="file" id="pdfFile" multiple accept="application/pdf">
+  <input type="file" id="pdfFile" multiple>
 
-  <br><br>
-
-  <button onclick="uploadPDF()">Upload PDFs</button>
-  <button onclick="getOutput()">Get Output</button>
-  <button onclick="logout()">Logout</button>
+  <div class="btn-row">
+    <button onclick="uploadPDF()">Upload</button>
+    <button onclick="getOutput()">Get Data</button>
+    <button onclick="logout()">Logout</button>
+  </div>
 
   <table>
     <thead>
@@ -112,97 +157,85 @@
 
 let globalData = [];
 
-// ---------------- LOGIN ----------------
-function login() {
+// TOGGLE REGISTER
+function toggleRegister(){
+  let box = document.getElementById("registerBox");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+}
+
+// LOGIN
+function login(){
   fetch("/login", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
-      username: document.getElementById("loginUser").value,
-      password: document.getElementById("loginPass").value
+      username: loginUser.value,
+      password: loginPass.value
     })
   })
-  .then(res => res.json())
-  .then(data => {
-    if(data.status === "success") {
-      document.getElementById("loginBox").style.display = "none";
-      document.getElementById("dashboard").style.display = "block";
+  .then(r=>r.json())
+  .then(d=>{
+    if(d.status==="success"){
+      loginBox.style.display="none";
+      dashboard.style.display="block";
     } else {
-      document.getElementById("msg").innerText = "❌ Invalid Login";
+      msg.innerText="❌ Invalid credentials";
     }
   });
 }
 
-
-// ---------------- REGISTER ----------------
-function register() {
+// REGISTER
+function register(){
   fetch("/register", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
-      username: document.getElementById("regUser").value,
-      password: document.getElementById("regPass").value
+      username: regUser.value,
+      password: regPass.value
     })
   })
-  .then(res => res.json())
-  .then(data => {
-    document.getElementById("msg").innerText = data.message;
+  .then(r=>r.json())
+  .then(d=>{
+    msg.innerText=d.message;
   });
 }
 
-
-// ---------------- UPLOAD PDF ----------------
-function uploadPDF() {
-  const fileInput = document.getElementById("pdfFile");
-  const files = fileInput.files;
-
-  const formData = new FormData();
-
-  for(let i=0; i<files.length; i++) {
-    formData.append("files", files[i]);
+// UPLOAD
+function uploadPDF(){
+  let form=new FormData();
+  for(let f of pdfFile.files){
+    form.append("files",f);
   }
 
-  fetch("/upload", {
-    method: "POST",
-    body: formData
-  })
-  .then(res => res.json())
-  .then(data => {
-    alert("Upload Done");
-  });
+  fetch("/upload",{method:"POST",body:form})
+  .then(r=>r.json())
+  .then(()=>alert("Uploaded"));
 }
 
-
-// ---------------- GET OUTPUT ----------------
-function getOutput() {
+// GET DATA
+function getOutput(){
   fetch("/get-output")
-  .then(res => res.json())
-  .then(data => {
-
-    globalData = data;
-
-    const table = document.getElementById("tableBody");
-    table.innerHTML = "";
-
-    data.forEach(item => {
-      table.innerHTML += `
+  .then(r=>r.json())
+  .then(data=>{
+    globalData=data;
+    tableBody.innerHTML="";
+    data.forEach(i=>{
+      tableBody.innerHTML+=`
         <tr>
-          <td>${item.file}</td>
-          <td>${item.name}</td>
-          <td>${item.net_pay}</td>
-          <td>${item.basic_salary}</td>
+          <td>${i.file}</td>
+          <td>${i.name}</td>
+          <td>${i.net_pay}</td>
+          <td>${i.basic_salary}</td>
         </tr>
       `;
     });
-
   });
 }
 
-
-// ---------------- LOGOUT ----------------
-function logout() {
-  document.getElementById("loginBox").style.display = "block";
-  document.getElementById("dashboard").style.display = "none";
+// LOGOUT
+function logout(){
+  dashboard.style.display="none";
+  loginBox.style.display="block";
 }
 
 </script>
