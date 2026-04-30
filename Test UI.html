@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Secure SaaS App</title>
+<title>Secure SaaS System</title>
 
 <style>
 body{
@@ -12,7 +12,7 @@ body{
 
 .box{
   width:420px;
-  margin:40px auto;
+  margin:30px auto;
   background:white;
   padding:20px;
   border-radius:15px;
@@ -31,6 +31,7 @@ button{
   color:white;
   border:none;
   margin-top:10px;
+  cursor:pointer;
 }
 
 .eye{
@@ -50,21 +51,20 @@ button{
 
 <input id="fn" placeholder="First Name">
 <input id="ln" placeholder="Last Name">
-<input type="date" id="dob">
+<input id="dob" type="date">
 
 <input id="email" placeholder="Email">
 
 <input type="password" id="pass">
-<span class="eye" onclick="toggle('pass')">👁</span>
+<span class="eye" onclick="toggle(pass)">👁</span>
 
 <input type="password" id="cpass">
-<span class="eye" onclick="toggle('cpass')">👁</span>
+<span class="eye" onclick="toggle(cpass)">👁</span>
 
 <button onclick="sendOTP()">Send OTP</button>
 
 <input id="otp" placeholder="Enter OTP">
 <button onclick="register()">Register</button>
-
 </div>
 
 <!-- LOGIN -->
@@ -74,7 +74,7 @@ button{
 <input id="lemail" placeholder="Email">
 
 <input type="password" id="lpass">
-<span class="eye" onclick="toggle('lpass')">👁</span>
+<span class="eye" onclick="toggle(lpass)">👁</span>
 
 <button onclick="login()">Login</button>
 </div>
@@ -94,6 +94,7 @@ button{
 
 <!-- PROFILE -->
 <div id="profile" class="box">
+
 <h2>Profile</h2>
 
 <p id="pname"></p>
@@ -108,9 +109,7 @@ button{
 
 let currentEmail="";
 
-// EYE TOGGLE
-function toggle(id){
-  let e=document.getElementById(id);
+function toggle(e){
   e.type = e.type==="password"?"text":"password";
 }
 
@@ -121,14 +120,14 @@ function sendOTP(){
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({email:email.value})
   });
-  alert("OTP Sent");
+  alert("OTP sent to email");
 }
 
 // REGISTER
 function register(){
 
-  if(pass.value!==cpass.value){
-    alert("Passwords not match");
+  if(pass.value !== cpass.value){
+    alert("Password mismatch");
     return;
   }
 
@@ -147,6 +146,7 @@ function register(){
     alert(d.status);
     regBox.reset;
     regBox.style.display="none";
+    loginBox.style.display="block";
   });
 }
 
@@ -162,6 +162,7 @@ function login(){
   }).then(r=>r.json()).then(d=>{
     if(d.status==="success"){
       currentEmail=lemail.value;
+
       loginBox.style.display="none";
       dash.style.display="block";
 
@@ -177,7 +178,7 @@ function showProfile(){
   profile.style.display="block";
 }
 
-// UPDATE PASS
+// UPDATE PASSWORD
 function updatePass(){
   fetch("/update-password",{
     method:"POST",
@@ -205,12 +206,13 @@ function getData(){
   .then(d=>{
     tb.innerHTML="";
     d.forEach(i=>{
-      tb.innerHTML+=`<tr>
-        <td>${i.file}</td>
-        <td>${i.name}</td>
-        <td>${i.net_pay}</td>
-        <td>${i.basic_salary}</td>
-      </tr>`;
+      tb.innerHTML+=`
+        <tr>
+          <td>${i.file}</td>
+          <td>${i.name}</td>
+          <td>${i.net_pay}</td>
+          <td>${i.basic_salary}</td>
+        </tr>`;
     });
   });
 }

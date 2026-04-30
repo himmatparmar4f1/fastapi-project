@@ -1,11 +1,13 @@
 from fastapi import FastAPI, UploadFile, File, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from PyPDF2 import PdfReader
 from typing import List
 import sqlite3
 import random
 import string
+import smtplib
+from email.mime.text import MIMEText
 import os
 import shutil
 import re
@@ -22,7 +24,7 @@ app.add_middleware(
 
 FOLDER = "pdfs"
 
-# ---------------- DB INIT ----------------
+# ---------------- DB ----------------
 def init_db():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
@@ -51,14 +53,31 @@ def init_db():
 
 init_db()
 
-# ---------------- HOME ----------------
-@app.get("/")
-def home():
-    return FileResponse("Test UI.html")
+# ---------------- EMAIL FUNCTION ----------------
+def send_email(to_email, otp):
+
+    sender_email = "yourgmail@gmail.com"
+    app_password = "your_app_password"
+
+    msg = MIMEText(f"Your verification code is: {otp}")
+    msg["Subject"] = "OTP Verification Code"
+    msg["From"] = sender_email
+    msg["To"] = to_email
+
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(sender_email, app_password)
+    server.sendmail(sender_email, to_email, msg.as_string())
+    server.quit()
 
 # ---------------- OTP GENERATOR ----------------
 def generate_otp():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+# ---------------- HOME ----------------
+@app.get("/")
+def home():
+    return FileResponse("Test UI.html")
 
 # ---------------- SEND OTP ----------------
 @app.post("/send-otp")
@@ -77,11 +96,12 @@ async def send_otp(request: Request):
     conn.commit()
     conn.close()
 
-    print("OTP for", email, "is", otp)  # replace with email sender
+    # REAL EMAIL SEND
+    send_email(email, otp)
 
-    return {"status": "sent", "otp": otp}
+    return {"status": "sent"}
 
-# ---------------- VERIFY OTP + REGISTER ----------------
+# ---------------- REGISTER ----------------
 @app.post("/register")
 async def register(request: Request):
     data = await request.json()
@@ -96,8 +116,8 @@ async def register(request: Request):
         return {"status": "failed", "message": "Invalid OTP"}
 
     c.execute("""
-        INSERT INTO users (first_name,last_name,birthdate,email,password,verified)
-        VALUES (?,?,?,?,?,1)
+    INSERT INTO users (first_name,last_name,birthdate,email,password,verified)
+    VALUES (?,?,?,?,?,1)
     """, (
         data["first_name"],
         data["last_name"],
@@ -153,28 +173,7 @@ async def update_password(request: Request):
 
     return {"status": "updated"}
 
-# ---------------- FORGOT PASSWORD OTP ----------------
-@app.post("/forgot-send")
-async def forgot_send(request: Request):
-    data = await request.json()
-    email = data["email"]
-
-    otp = generate_otp()
-
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
-
-    c.execute("DELETE FROM otp_store WHERE email=?", (email,))
-    c.execute("INSERT INTO otp_store VALUES (?,?)", (email, otp))
-
-    conn.commit()
-    conn.close()
-
-    print("RESET OTP:", otp)
-
-    return {"status": "sent", "otp": otp}
-
-# ---------------- UPLOAD PDF ----------------
+# ---------------- UPLOAD ----------------
 @app.post("/upload")
 async def upload(files: List[UploadFile] = File(...)):
 
@@ -189,9 +188,10 @@ async def upload(files: List[UploadFile] = File(...)):
 
     return {"status": "uploaded"}
 
-# ---------------- GET OUTPUT ----------------
+# ---------------- OUTPUT ----------------
 @app.get("/get-output")
 def output():
+
     if not os.path.exists(FOLDER):
         return []
 
@@ -199,6 +199,7 @@ def output():
 
     for f in os.listdir(FOLDER):
         if f.endswith(".pdf"):
+
             reader = PdfReader(os.path.join(FOLDER, f))
             text = ""
 
