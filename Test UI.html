@@ -1,90 +1,68 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Secure PDF System</title>
+  <title>Secure SaaS System</title>
 
   <style>
     body {
       margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      font-family: 'Segoe UI';
+      background: linear-gradient(135deg,#4f46e5,#9333ea);
     }
 
-    /* LOGIN CARD */
-    .card {
-      width: 380px;
+    .container {
+      width: 420px;
+      margin: 60px auto;
       background: white;
-      padding: 30px;
+      padding: 25px;
       border-radius: 15px;
-      box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+    }
+
+    h2 {
       text-align: center;
     }
 
-    .card h2 {
-      margin-bottom: 20px;
-      color: #333;
-    }
-
-    input {
+    input, select {
       width: 100%;
-      padding: 12px;
-      margin: 10px 0;
+      padding: 10px;
+      margin: 6px 0;
       border: 1px solid #ddd;
       border-radius: 8px;
-      outline: none;
-      font-size: 14px;
-    }
-
-    input:focus {
-      border-color: #667eea;
     }
 
     button {
       width: 100%;
-      padding: 12px;
+      padding: 10px;
       margin-top: 10px;
+      background: #4f46e5;
+      color: white;
       border: none;
       border-radius: 8px;
-      background: #667eea;
-      color: white;
-      font-size: 15px;
       cursor: pointer;
-      transition: 0.3s;
     }
 
     button:hover {
-      background: #5a67d8;
+      background: #3730a3;
     }
 
-    .link {
-      margin-top: 10px;
-      font-size: 13px;
-      cursor: pointer;
-      color: #667eea;
-    }
-
-    /* DASHBOARD */
     #dashboard {
       display: none;
       width: 90%;
+      margin: 30px auto;
       background: white;
       padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      border-radius: 12px;
     }
 
     table {
       width: 100%;
-      margin-top: 15px;
+      margin-top: 20px;
       border-collapse: collapse;
     }
 
     th {
-      background: #667eea;
+      background: #4f46e5;
       color: white;
       padding: 10px;
     }
@@ -94,140 +72,148 @@
       border-bottom: 1px solid #eee;
     }
 
-    .btn-row button {
-      width: auto;
-      margin-right: 10px;
-      padding: 8px 12px;
+    .link {
+      text-align: center;
+      cursor: pointer;
+      color: blue;
+      margin-top: 10px;
     }
-
   </style>
 </head>
 
 <body>
 
-<!-- ================= LOGIN BOX ================= -->
-<div class="card" id="loginBox">
+<!-- ================= REGISTER ================= -->
+<div class="container" id="registerBox">
 
-  <h2>🔐 Secure Login</h2>
+  <h2>🆕 Create Account</h2>
 
-  <input id="loginUser" placeholder="Username">
-  <input id="loginPass" type="password" placeholder="Password">
+  <input id="fn" placeholder="First Name">
+  <input id="ln" placeholder="Last Name">
+
+  <input type="date" id="dob">
+
+  <input id="email" placeholder="Email">
+  <input id="pass" type="password" placeholder="Password">
+
+  <button onclick="register()">Register</button>
+
+  <div class="link" onclick="showLogin()">Already have account? Login</div>
+
+</div>
+
+<!-- ================= LOGIN ================= -->
+<div class="container" id="loginBox" style="display:none;">
+
+  <h2>🔐 Login</h2>
+
+  <input id="lemail" placeholder="Email">
+  <input id="lpass" type="password" placeholder="Password">
 
   <button onclick="login()">Login</button>
 
-  <div class="link" onclick="toggleRegister()">Create new account</div>
+  <div class="link" onclick="showRegister()">Create Account</div>
 
-  <div id="registerBox" style="display:none;">
-    <input id="regUser" placeholder="New Username">
-    <input id="regPass" type="password" placeholder="New Password">
-    <button onclick="register()">Register</button>
-  </div>
-
-  <p id="msg"></p>
 </div>
 
 <!-- ================= DASHBOARD ================= -->
 <div id="dashboard">
 
-  <h2>📄 PDF Processing Dashboard</h2>
+  <h2>📄 PDF Dashboard</h2>
 
-  <input type="file" id="pdfFile" multiple>
+  <input type="file" id="file" multiple>
 
-  <div class="btn-row">
-    <button onclick="uploadPDF()">Upload</button>
-    <button onclick="getOutput()">Get Data</button>
-    <button onclick="logout()">Logout</button>
-  </div>
+  <button onclick="upload()">Upload</button>
+  <button onclick="getData()">Get Data</button>
+  <button onclick="logout()">Logout</button>
 
   <table>
     <thead>
       <tr>
         <th>File</th>
         <th>Name</th>
-        <th>Net Pay</th>
+        <th>Net</th>
         <th>Basic</th>
       </tr>
     </thead>
-    <tbody id="tableBody"></tbody>
+    <tbody id="tb"></tbody>
   </table>
 
 </div>
 
 <script>
 
-let globalData = [];
-
-// TOGGLE REGISTER
-function toggleRegister(){
-  let box = document.getElementById("registerBox");
-  box.style.display = box.style.display === "none" ? "block" : "none";
+function showLogin(){
+  registerBox.style.display="none";
+  loginBox.style.display="block";
 }
 
-// LOGIN
-function login(){
-  fetch("/login", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      username: loginUser.value,
-      password: loginPass.value
-    })
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    if(d.status==="success"){
-      loginBox.style.display="none";
-      dashboard.style.display="block";
-    } else {
-      msg.innerText="❌ Invalid credentials";
-    }
-  });
+function showRegister(){
+  loginBox.style.display="none";
+  registerBox.style.display="block";
 }
 
 // REGISTER
 function register(){
-  fetch("/register", {
+  fetch("/register",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      username: regUser.value,
-      password: regPass.value
+    body:JSON.stringify({
+      first_name:fn.value,
+      last_name:ln.value,
+      birthdate:dob.value,
+      email:email.value,
+      password:pass.value
     })
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    msg.innerText=d.message;
+  }).then(r=>r.json()).then(d=>{
+    alert(d.message);
+    showLogin();
+  });
+}
+
+// LOGIN
+function login(){
+  fetch("/login",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      email:lemail.value,
+      password:lpass.value
+    })
+  }).then(r=>r.json()).then(d=>{
+    if(d.status==="success"){
+      loginBox.style.display="none";
+      dashboard.style.display="block";
+    }else{
+      alert("Invalid login");
+    }
   });
 }
 
 // UPLOAD
-function uploadPDF(){
-  let form=new FormData();
-  for(let f of pdfFile.files){
-    form.append("files",f);
+function upload(){
+  let f=new FormData();
+  for(let x of file.files){
+    f.append("files",x);
   }
-
-  fetch("/upload",{method:"POST",body:form})
-  .then(r=>r.json())
+  fetch("/upload",{method:"POST",body:f})
   .then(()=>alert("Uploaded"));
 }
 
 // GET DATA
-function getOutput(){
+function getData(){
   fetch("/get-output")
   .then(r=>r.json())
-  .then(data=>{
-    globalData=data;
-    tableBody.innerHTML="";
-    data.forEach(i=>{
-      tableBody.innerHTML+=`
+  .then(d=>{
+    tb.innerHTML="";
+    d.forEach(i=>{
+      tb.innerHTML+=`
         <tr>
           <td>${i.file}</td>
           <td>${i.name}</td>
           <td>${i.net_pay}</td>
           <td>${i.basic_salary}</td>
-        </tr>
-      `;
+        </tr>`;
     });
   });
 }
@@ -235,7 +221,7 @@ function getOutput(){
 // LOGOUT
 function logout(){
   dashboard.style.display="none";
-  loginBox.style.display="block";
+  registerBox.style.display="block";
 }
 
 </script>

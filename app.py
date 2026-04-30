@@ -10,9 +10,7 @@ import sqlite3
 
 app = FastAPI()
 
-# ---------------------------
-# CORS
-# ---------------------------
+# ---------------- CORS ----------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,9 +21,7 @@ app.add_middleware(
 
 FOLDER = "pdfs"
 
-# ---------------------------
-# INIT DATABASE
-# ---------------------------
+# ---------------- DB INIT ----------------
 def init_db():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
@@ -33,7 +29,10 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
+            first_name TEXT,
+            last_name TEXT,
+            birthdate TEXT,
+            email TEXT UNIQUE,
             password TEXT
         )
     """)
@@ -43,67 +42,59 @@ def init_db():
 
 init_db()
 
-
-# ---------------------------
-# SERVE UI
-# ---------------------------
+# ---------------- HOME ----------------
 @app.get("/")
 def home():
     return FileResponse("Test UI.html")
 
-
-# ---------------------------
-# REGISTER USER
-# ---------------------------
+# ---------------- REGISTER ----------------
 @app.post("/register")
 async def register(request: Request):
     data = await request.json()
-
-    username = data["username"]
-    password = data["password"]
 
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
 
     try:
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", 
-                  (username, password))
+        c.execute("""
+            INSERT INTO users (first_name, last_name, birthdate, email, password)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            data["first_name"],
+            data["last_name"],
+            data["birthdate"],
+            data["email"],
+            data["password"]
+        ))
+
         conn.commit()
-        return {"status": "success", "message": "User registered"}
+        return {"status": "success", "message": "Account created"}
     except:
-        return {"status": "failed", "message": "User already exists"}
+        return {"status": "failed", "message": "Email already exists"}
     finally:
         conn.close()
 
-
-# ---------------------------
-# LOGIN USER
-# ---------------------------
+# ---------------- LOGIN ----------------
 @app.post("/login")
 async def login(request: Request):
     data = await request.json()
 
-    username = data["username"]
-    password = data["password"]
-
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
 
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", 
-              (username, password))
+    c.execute("""
+        SELECT * FROM users 
+        WHERE email=? AND password=?
+    """, (data["email"], data["password"]))
 
     user = c.fetchone()
     conn.close()
 
     if user:
         return {"status": "success"}
-    else:
-        return {"status": "failed"}
+    return {"status": "failed"}
 
-
-# ---------------------------
-# UPLOAD PDF
-# ---------------------------
+# ---------------- UPLOAD PDF ----------------
 @app.post("/upload")
 async def upload_pdf(files: List[UploadFile] = File(...)):
 
@@ -112,26 +103,16 @@ async def upload_pdf(files: List[UploadFile] = File(...)):
 
     os.makedirs(FOLDER, exist_ok=True)
 
-    saved_files = []
-
     for file in files:
         file_path = os.path.join(FOLDER, file.filename)
-
         content = await file.read()
+
         with open(file_path, "wb") as f:
             f.write(content)
 
-        saved_files.append(file.filename)
+    return {"message": "uploaded"}
 
-    return {
-        "message": "Files uploaded successfully",
-        "files": saved_files
-    }
-
-
-# ---------------------------
-# GET OUTPUT FROM PDF
-# ---------------------------
+# ---------------- GET OUTPUT ----------------
 @app.get("/get-output")
 def get_output():
 
@@ -142,36 +123,23 @@ def get_output():
 
     for file in os.listdir(FOLDER):
         if file.endswith(".pdf"):
-            file_path = os.path.join(FOLDER, file)
 
-            reader = PdfReader(file_path)
-            full_text = ""
+            reader = PdfReader(os.path.join(FOLDER, file))
+            text = ""
 
-            for page in reader.pages:
-                text = page.extract_text()
-                if text:
-                    full_text += text + "\n"
+            for p in reader.pages:
+                if p.extract_text():
+                    text += p.extract_text()
 
-            # EMPLOYEE NAME
-            name_match = re.search(r"EMPLOYEE\s*NAME\s*:?\s*(.+)", full_text, re.IGNORECASE)
-            if name_match:
-                name = name_match.group(1).split("EMPLOYEE CODE")[0].strip()
-            else:
-                name = "Not Found"
-
-            # NET PAY
-            net_pay_match = re.search(r"NET\s*PAY\s+([\d,]+)", full_text, re.IGNORECASE)
-            net_pay = net_pay_match.group(1) if net_pay_match else "Not Found"
-
-            # BASIC SALARY
-            basic_match = re.search(r"BASIC\s+([\d,]+)", full_text, re.IGNORECASE)
-            basic = basic_match.group(1) if basic_match else "Not Found"
+            name = re.search(r"EMPLOYEE\s*NAME\s*:?\s*(.+)", text, re.IGNORECASE)
+            net = re.search(r"NET\s*PAY\s+([\d,]+)", text, re.IGNORECASE)
+            basic = re.search(r"BASIC\s+([\d,]+)", text, re.IGNORECASE)
 
             results.append({
                 "file": file,
-                "name": name,
-                "net_pay": net_pay,
-                "basic_salary": basic
+                "name": name.group(1).split("EMPLOYEE")[0].strip() if name else "N/A",
+                "net_pay": net.group(1) if net else "N/A",
+                "basic_salary": basic.group(1) if basic else "N/A"
             })
 
     return results
