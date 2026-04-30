@@ -3,10 +3,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from PyPDF2 import PdfReader
 from typing import List
-import re
+import sqlite3
+import random
+import string
 import os
 import shutil
-import sqlite3
+import re
 
 app = FastAPI()
 
@@ -14,7 +16,6 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -27,14 +28,22 @@ def init_db():
     c = conn.cursor()
 
     c.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            first_name TEXT,
-            last_name TEXT,
-            birthdate TEXT,
-            email TEXT UNIQUE,
-            password TEXT
-        )
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        first_name TEXT,
+        last_name TEXT,
+        birthdate TEXT,
+        email TEXT UNIQUE,
+        password TEXT,
+        verified INTEGER DEFAULT 0
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS otp_store (
+        email TEXT,
+        otp TEXT
+    )
     """)
 
     conn.commit()
@@ -47,7 +56,32 @@ init_db()
 def home():
     return FileResponse("Test UI.html")
 
-# ---------------- REGISTER ----------------
+# ---------------- OTP GENERATOR ----------------
+def generate_otp():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+# ---------------- SEND OTP ----------------
+@app.post("/send-otp")
+async def send_otp(request: Request):
+    data = await request.json()
+    email = data["email"]
+
+    otp = generate_otp()
+
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+
+    c.execute("DELETE FROM otp_store WHERE email=?", (email,))
+    c.execute("INSERT INTO otp_store VALUES (?,?)", (email, otp))
+
+    conn.commit()
+    conn.close()
+
+    print("OTP for", email, "is", otp)  # replace with email sender
+
+    return {"status": "sent", "otp": otp}
+
+# ---------------- VERIFY OTP + REGISTER ----------------
 @app.post("/register")
 async def register(request: Request):
     data = await request.json()
@@ -55,24 +89,27 @@ async def register(request: Request):
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
 
-    try:
-        c.execute("""
-            INSERT INTO users (first_name, last_name, birthdate, email, password)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            data["first_name"],
-            data["last_name"],
-            data["birthdate"],
-            data["email"],
-            data["password"]
-        ))
+    c.execute("SELECT otp FROM otp_store WHERE email=?", (data["email"],))
+    row = c.fetchone()
 
-        conn.commit()
-        return {"status": "success", "message": "Account created"}
-    except:
-        return {"status": "failed", "message": "Email already exists"}
-    finally:
-        conn.close()
+    if not row or row[0] != data["otp"]:
+        return {"status": "failed", "message": "Invalid OTP"}
+
+    c.execute("""
+        INSERT INTO users (first_name,last_name,birthdate,email,password,verified)
+        VALUES (?,?,?,?,?,1)
+    """, (
+        data["first_name"],
+        data["last_name"],
+        data["birthdate"],
+        data["email"],
+        data["password"]
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "success"}
 
 # ---------------- LOGIN ----------------
 @app.post("/login")
@@ -82,64 +119,102 @@ async def login(request: Request):
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
 
-    c.execute("""
-        SELECT * FROM users 
-        WHERE email=? AND password=?
-    """, (data["email"], data["password"]))
+    c.execute("SELECT * FROM users WHERE email=? AND password=?",
+              (data["email"], data["password"]))
 
     user = c.fetchone()
     conn.close()
 
     if user:
-        return {"status": "success"}
+        return {
+            "status": "success",
+            "user": {
+                "first_name": user[1],
+                "last_name": user[2],
+                "email": user[4]
+            }
+        }
+
     return {"status": "failed"}
+
+# ---------------- UPDATE PASSWORD ----------------
+@app.post("/update-password")
+async def update_password(request: Request):
+    data = await request.json()
+
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+
+    c.execute("UPDATE users SET password=? WHERE email=?",
+              (data["password"], data["email"]))
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "updated"}
+
+# ---------------- FORGOT PASSWORD OTP ----------------
+@app.post("/forgot-send")
+async def forgot_send(request: Request):
+    data = await request.json()
+    email = data["email"]
+
+    otp = generate_otp()
+
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+
+    c.execute("DELETE FROM otp_store WHERE email=?", (email,))
+    c.execute("INSERT INTO otp_store VALUES (?,?)", (email, otp))
+
+    conn.commit()
+    conn.close()
+
+    print("RESET OTP:", otp)
+
+    return {"status": "sent", "otp": otp}
 
 # ---------------- UPLOAD PDF ----------------
 @app.post("/upload")
-async def upload_pdf(files: List[UploadFile] = File(...)):
+async def upload(files: List[UploadFile] = File(...)):
 
     if os.path.exists(FOLDER):
         shutil.rmtree(FOLDER)
 
     os.makedirs(FOLDER, exist_ok=True)
 
-    for file in files:
-        file_path = os.path.join(FOLDER, file.filename)
-        content = await file.read()
+    for f in files:
+        with open(os.path.join(FOLDER, f.filename), "wb") as out:
+            out.write(await f.read())
 
-        with open(file_path, "wb") as f:
-            f.write(content)
-
-    return {"message": "uploaded"}
+    return {"status": "uploaded"}
 
 # ---------------- GET OUTPUT ----------------
 @app.get("/get-output")
-def get_output():
-
+def output():
     if not os.path.exists(FOLDER):
         return []
 
-    results = []
+    res = []
 
-    for file in os.listdir(FOLDER):
-        if file.endswith(".pdf"):
-
-            reader = PdfReader(os.path.join(FOLDER, file))
+    for f in os.listdir(FOLDER):
+        if f.endswith(".pdf"):
+            reader = PdfReader(os.path.join(FOLDER, f))
             text = ""
 
             for p in reader.pages:
                 if p.extract_text():
                     text += p.extract_text()
 
-            name = re.search(r"EMPLOYEE\s*NAME\s*:?\s*(.+)", text, re.IGNORECASE)
-            net = re.search(r"NET\s*PAY\s+([\d,]+)", text, re.IGNORECASE)
-            basic = re.search(r"BASIC\s+([\d,]+)", text, re.IGNORECASE)
+            name = re.search(r"EMPLOYEE\s*NAME\s*:?\s*(.+)", text, re.I)
+            net = re.search(r"NET\s*PAY\s+([\d,]+)", text, re.I)
+            basic = re.search(r"BASIC\s+([\d,]+)", text, re.I)
 
-            results.append({
-                "file": file,
-                "name": name.group(1).split("EMPLOYEE")[0].strip() if name else "N/A",
+            res.append({
+                "file": f,
+                "name": name.group(1) if name else "N/A",
                 "net_pay": net.group(1) if net else "N/A",
                 "basic_salary": basic.group(1) if basic else "N/A"
             })
 
-    return results
+    return res

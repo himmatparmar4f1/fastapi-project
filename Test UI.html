@@ -1,160 +1,137 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Secure SaaS System</title>
+<title>Secure SaaS App</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI';
-      background: linear-gradient(135deg,#4f46e5,#9333ea);
-    }
+<style>
+body{
+  font-family:Segoe UI;
+  background:linear-gradient(135deg,#4f46e5,#9333ea);
+  margin:0;
+}
 
-    .container {
-      width: 420px;
-      margin: 60px auto;
-      background: white;
-      padding: 25px;
-      border-radius: 15px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
-    }
+.box{
+  width:420px;
+  margin:40px auto;
+  background:white;
+  padding:20px;
+  border-radius:15px;
+}
 
-    h2 {
-      text-align: center;
-    }
+input{
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+}
 
-    input, select {
-      width: 100%;
-      padding: 10px;
-      margin: 6px 0;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-    }
+button{
+  width:100%;
+  padding:10px;
+  background:#4f46e5;
+  color:white;
+  border:none;
+  margin-top:10px;
+}
 
-    button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      background: #4f46e5;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
+.eye{
+  float:right;
+  cursor:pointer;
+}
 
-    button:hover {
-      background: #3730a3;
-    }
-
-    #dashboard {
-      display: none;
-      width: 90%;
-      margin: 30px auto;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-    }
-
-    table {
-      width: 100%;
-      margin-top: 20px;
-      border-collapse: collapse;
-    }
-
-    th {
-      background: #4f46e5;
-      color: white;
-      padding: 10px;
-    }
-
-    td {
-      padding: 10px;
-      border-bottom: 1px solid #eee;
-    }
-
-    .link {
-      text-align: center;
-      cursor: pointer;
-      color: blue;
-      margin-top: 10px;
-    }
-  </style>
+#dash,#profile{display:none;}
+</style>
 </head>
 
 <body>
 
-<!-- ================= REGISTER ================= -->
-<div class="container" id="registerBox">
+<!-- REGISTER -->
+<div class="box" id="regBox">
+<h2>Register</h2>
 
-  <h2>🆕 Create Account</h2>
+<input id="fn" placeholder="First Name">
+<input id="ln" placeholder="Last Name">
+<input type="date" id="dob">
 
-  <input id="fn" placeholder="First Name">
-  <input id="ln" placeholder="Last Name">
+<input id="email" placeholder="Email">
 
-  <input type="date" id="dob">
+<input type="password" id="pass">
+<span class="eye" onclick="toggle('pass')">👁</span>
 
-  <input id="email" placeholder="Email">
-  <input id="pass" type="password" placeholder="Password">
+<input type="password" id="cpass">
+<span class="eye" onclick="toggle('cpass')">👁</span>
 
-  <button onclick="register()">Register</button>
+<button onclick="sendOTP()">Send OTP</button>
 
-  <div class="link" onclick="showLogin()">Already have account? Login</div>
-
-</div>
-
-<!-- ================= LOGIN ================= -->
-<div class="container" id="loginBox" style="display:none;">
-
-  <h2>🔐 Login</h2>
-
-  <input id="lemail" placeholder="Email">
-  <input id="lpass" type="password" placeholder="Password">
-
-  <button onclick="login()">Login</button>
-
-  <div class="link" onclick="showRegister()">Create Account</div>
+<input id="otp" placeholder="Enter OTP">
+<button onclick="register()">Register</button>
 
 </div>
 
-<!-- ================= DASHBOARD ================= -->
-<div id="dashboard">
+<!-- LOGIN -->
+<div class="box" id="loginBox">
+<h2>Login</h2>
 
-  <h2>📄 PDF Dashboard</h2>
+<input id="lemail" placeholder="Email">
 
-  <input type="file" id="file" multiple>
+<input type="password" id="lpass">
+<span class="eye" onclick="toggle('lpass')">👁</span>
 
-  <button onclick="upload()">Upload</button>
-  <button onclick="getData()">Get Data</button>
-  <button onclick="logout()">Logout</button>
+<button onclick="login()">Login</button>
+</div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>File</th>
-        <th>Name</th>
-        <th>Net</th>
-        <th>Basic</th>
-      </tr>
-    </thead>
-    <tbody id="tb"></tbody>
-  </table>
+<!-- DASHBOARD -->
+<div id="dash" class="box">
+
+<h2>Dashboard</h2>
+
+<input type="file" id="file" multiple>
+<button onclick="upload()">Upload</button>
+<button onclick="getData()">Get Data</button>
+<button onclick="showProfile()">Profile</button>
+
+<table id="tb"></table>
+</div>
+
+<!-- PROFILE -->
+<div id="profile" class="box">
+<h2>Profile</h2>
+
+<p id="pname"></p>
+<p id="pemail"></p>
+
+<input id="newpass" placeholder="New Password">
+<button onclick="updatePass()">Update Password</button>
 
 </div>
 
 <script>
 
-function showLogin(){
-  registerBox.style.display="none";
-  loginBox.style.display="block";
+let currentEmail="";
+
+// EYE TOGGLE
+function toggle(id){
+  let e=document.getElementById(id);
+  e.type = e.type==="password"?"text":"password";
 }
 
-function showRegister(){
-  loginBox.style.display="none";
-  registerBox.style.display="block";
+// SEND OTP
+function sendOTP(){
+  fetch("/send-otp",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({email:email.value})
+  });
+  alert("OTP Sent");
 }
 
 // REGISTER
 function register(){
+
+  if(pass.value!==cpass.value){
+    alert("Passwords not match");
+    return;
+  }
+
   fetch("/register",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -163,11 +140,13 @@ function register(){
       last_name:ln.value,
       birthdate:dob.value,
       email:email.value,
-      password:pass.value
+      password:pass.value,
+      otp:otp.value
     })
   }).then(r=>r.json()).then(d=>{
-    alert(d.message);
-    showLogin();
+    alert(d.status);
+    regBox.reset;
+    regBox.style.display="none";
   });
 }
 
@@ -182,11 +161,31 @@ function login(){
     })
   }).then(r=>r.json()).then(d=>{
     if(d.status==="success"){
+      currentEmail=lemail.value;
       loginBox.style.display="none";
-      dashboard.style.display="block";
-    }else{
-      alert("Invalid login");
+      dash.style.display="block";
+
+      pname.innerText=d.user.first_name;
+      pemail.innerText=d.user.email;
     }
+  });
+}
+
+// PROFILE
+function showProfile(){
+  dash.style.display="none";
+  profile.style.display="block";
+}
+
+// UPDATE PASS
+function updatePass(){
+  fetch("/update-password",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      email:currentEmail,
+      password:newpass.value
+    })
   });
 }
 
@@ -196,8 +195,7 @@ function upload(){
   for(let x of file.files){
     f.append("files",x);
   }
-  fetch("/upload",{method:"POST",body:f})
-  .then(()=>alert("Uploaded"));
+  fetch("/upload",{method:"POST",body:f});
 }
 
 // GET DATA
@@ -207,21 +205,14 @@ function getData(){
   .then(d=>{
     tb.innerHTML="";
     d.forEach(i=>{
-      tb.innerHTML+=`
-        <tr>
-          <td>${i.file}</td>
-          <td>${i.name}</td>
-          <td>${i.net_pay}</td>
-          <td>${i.basic_salary}</td>
-        </tr>`;
+      tb.innerHTML+=`<tr>
+        <td>${i.file}</td>
+        <td>${i.name}</td>
+        <td>${i.net_pay}</td>
+        <td>${i.basic_salary}</td>
+      </tr>`;
     });
   });
-}
-
-// LOGOUT
-function logout(){
-  dashboard.style.display="none";
-  registerBox.style.display="block";
 }
 
 </script>
