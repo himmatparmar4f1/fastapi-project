@@ -1,0 +1,125 @@
+<html>
+<body>
+
+<h2>📄 PDF Upload System</h2>
+
+<input type="file" id="pdfFile" multiple accept="application/pdf">
+
+<br><br>
+
+<button onclick="uploadPDF()">Upload PDFs</button>
+<button onclick="getOutput()">Get Output</button>
+
+<br><br>
+
+<!-- DOWNLOAD BUTTONS -->
+<button onclick="downloadJSON()">⬇ Download JSON</button>
+<button onclick="downloadExcel()">⬇ Download Excel</button>
+
+<br><br>
+
+<table border="1" style="border-collapse: collapse; width: 100%;">
+  <thead>
+    <tr>
+      <th>File Name</th>
+      <th>Employee Name</th>
+      <th>Net Pay</th>
+      <th>Basic Salary</th>
+    </tr>
+  </thead>
+  <tbody id="tableBody"></tbody>
+</table>
+
+<script>
+
+let globalData = [];
+
+// 📤 Upload PDFs
+function uploadPDF() {
+  const fileInput = document.getElementById("pdfFile");
+  const files = fileInput.files;
+
+  const formData = new FormData();
+
+  for (let i = 0; i < files.length; i++) {
+    formData.append("files", files[i]);
+  }
+
+  fetch("/upload", {
+    method: "POST",
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert("Upload Done");
+  });
+}
+
+
+// 📊 Get Output
+function getOutput() {
+  fetch("/get-output")
+    .then(res => res.json())
+    .then(data => {
+
+      globalData = data;
+
+      const tableBody = document.getElementById("tableBody");
+      tableBody.innerHTML = "";
+
+      data.forEach(item => {
+        tableBody.innerHTML += `
+          <tr>
+            <td>${item.file}</td>
+            <td>${item.name}</td>
+            <td>${item.net_pay}</td>
+            <td>${item.basic_salary}</td>
+          </tr>
+        `;
+      });
+
+    });
+}
+
+
+// 📥 JSON Download
+function downloadJSON() {
+  const dataStr = "data:text/json;charset=utf-8," +
+    encodeURIComponent(JSON.stringify(globalData, null, 2));
+
+  const a = document.createElement("a");
+  a.href = dataStr;
+  a.download = "data.json";
+  a.click();
+}
+
+
+// 📥 Excel Download (CSV)
+function downloadExcel() {
+
+  let csv = "File Name,Employee Name,Net Pay,Basic Salary\n";
+
+  globalData.forEach(row => {
+
+    const file = `"${row.file}"`;
+    const name = `"${row.name}"`;
+    const netPay = `"${row.net_pay}"`;
+    const basic = `"${row.basic_salary}"`;
+
+    csv += `${file},${name},${netPay},${basic}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "pdf_data.csv";
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
